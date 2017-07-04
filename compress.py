@@ -7,15 +7,39 @@ from multiprocessing import Pool
 from multiprocessing import cpu_count
 
 concurrency_level = cpu_count()  # as many as concurrency_levelessors
-default_jpg_quality = 50
+default_jpg_quality = 80
+
+result = ""
+
+
+def fix_orientation(img):
+    if hasattr(img, '_getexif'):
+        orientation = 0x0112
+        exif = img._getexif()
+        if exif is not None:
+            orientation = exif[orientation]
+            rotations = {
+                3: Image.ROTATE_180,
+                6: Image.ROTATE_270,
+                8: Image.ROTATE_90
+            }
+            if orientation in rotations:
+                img = img.transpose(rotations[orientation])
+    return img
 
 
 def compress_img(compress_cmd):
     (img_path, jpg_quality) = compress_cmd
 
     print("Compressing img %s" % img_path)
-    f = Image.open(img_path)
-    f.save(img_path, optimize=True, quality=jpg_quality)
+    try:
+        f = Image.open(img_path)
+        f = fix_orientation(f)
+        f.save(img_path, optimize=True, quality=jpg_quality)
+    except Exception as e:
+        print(e)
+        global result
+        result += str(e) + "\n"
 
 
 def is_jpg(img):
@@ -49,3 +73,5 @@ if __name__ == '__main__':
             recursive = True
     print("Starting recursive=%s quality=%s" % (str(recursive), str(quality)))
     compress(sys.argv[1], quality, recursive)
+    print("END")
+    print(result)
